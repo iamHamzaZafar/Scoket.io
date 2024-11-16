@@ -2,28 +2,39 @@ const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 
-const port = 3000;
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server , {cors: {
-  origin: "http://localhost:5173", // Allow React frontend
-  methods: ["GET", "POST"],
-},});
-
-app.get("/", (req, res) => {
-  res.send("<h2>Hello World</h2>");
+const io = new Server(server , {
+  cors: {
+    origin: "http://localhost:5173",
+    methods: ["GET", "POST"]
+  }
 });
 
-// Handles Socket.IO connections
 io.on("connection", (socket) => {
-  console.log(`User Connected: ${socket.id}`); // Correctly logs the connected user's socket ID
+  console.log(`User connected: ${socket.id}`);
 
-  // Handles specific client disconnection
+  // Broadcast a message to everyone
+  socket.on("send_message", (data) => {
+    console.log(`Broadcast message: ${data.text}`);
+    io.emit("receive_message", { from: socket.id, ...data });
+  });
+
+  // Send a private message to a specific socket ID
+  socket.on("send_message_to_id", ({ toSocketId, message }) => {
+    console.log(`Private message from ${socket.id} to ${toSocketId}: ${message}`);
+    io.to(toSocketId).emit("receive_message", {
+      from: socket.id,
+      text: message,
+      timestamp: new Date().toLocaleTimeString(),
+    });
+  });
+
   socket.on("disconnect", () => {
-    console.log(`User Disconnected: ${socket.id}`); // Correctly logs the disconnected user's socket ID
+    console.log(`User disconnected: ${socket.id}`);
   });
 });
 
-server.listen(port, () => {
-  console.log(`Example app listening at port ${port}`);
+server.listen(3000, () => {
+  console.log("Server is running on http://localhost:3000");
 });
