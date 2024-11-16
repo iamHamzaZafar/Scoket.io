@@ -6,92 +6,88 @@ import io from "socket.io-client";
 const socket = io.connect("http://localhost:3000");
 
 function App() {
-  const [message, setMessage] = useState(""); // Message to send
-  const [recipientId, setRecipientId] = useState(""); // Recipient's socket ID
-  const [messages, setMessages] = useState([]); // List of all messages
+  const [message, setMessage] = useState(""); // Input message
+  const [messages, setMessages] = useState([]); // List of messages
+  const [recipientId, setRecipientId] = useState(""); // Private message recipient ID
 
-  // Listen for incoming messages
+  // Listen for incoming messages from the server
   useEffect(() => {
     socket.on("receive_message", (data) => {
-      console.log("Incoming message:", data);
-      setMessages((prevMessages) => [...prevMessages, data]);
+      console.log("Received message:", data);
+      setMessages((prevMessages) => [...prevMessages, data]); // Add message to list
     });
 
     return () => {
-      socket.off("receive_message");
+      socket.off("receive_message"); // Cleanup listener
     };
   }, []);
 
-  // Handle sending a broadcast message
-  const handleBroadcastMessage = () => {
+  // Handle sending broadcast message
+  const sendBroadcastMessage = () => {
     if (message.trim()) {
-      const messageData = {
-        text: message,
-        timestamp: new Date().toLocaleTimeString(),
-      };
-
-      socket.emit("send_message", messageData); // Emit to everyone
-      setMessages((prevMessages) => [...prevMessages, { from: "You", ...messageData }]);
-      setMessage(""); // Clear input
+      const messageData = { text: message, timestamp: new Date().toLocaleTimeString() };
+      socket.emit("send_message", messageData); // Send message to all clients
+      setMessages((prevMessages) => [...prevMessages, { from: "You", ...messageData }]); // Optionally update UI before confirmation
+      setMessage(""); // Clear input field
     }
   };
 
-  // Handle sending a private message
-  const handleSendMessageToId = () => {
+  // Handle sending private message
+  const sendPrivateMessage = () => {
     if (recipientId.trim() && message.trim()) {
-      const messageData = {
-        text: message,
-        to: recipientId,
-        timestamp: new Date().toLocaleTimeString(),
-      };
-
-      socket.emit("send_message_to_id", { toSocketId: recipientId, message }); // Emit to specific user
-      setMessages((prevMessages) => [...prevMessages, { from: "You (Private)", ...messageData }]);
-      setMessage(""); // Clear input
+      const messageData = { toSocketId: recipientId, message };
+      socket.emit("send_message_to_id", messageData); // Send private message
+      setMessages((prevMessages) => [
+        ...prevMessages,
+        { from: "You", text: message, timestamp: new Date().toLocaleTimeString() },
+      ]); // Optionally update UI before confirmation
+      setMessage(""); // Clear input field
     }
   };
 
   return (
-    <div className="container">
-      <h2>Chat Application with Private Messaging</h2>
+    <div className="App">
+      <h2>Chat Application</h2>
 
-      {/* Input for recipient's socket ID */}
+      {/* Broadcast Message Section */}
       <div>
-        <label>Recipient Socket ID (for private message):</label>
-        <input
-          type="text"
-          value={recipientId}
-          onChange={(e) => setRecipientId(e.target.value)}
-          placeholder="Enter recipient's socket ID"
-        />
-      </div>
-
-      {/* Input for the message */}
-      <div>
-        <label>Message:</label>
+        <h3>Send a Broadcast Message</h3>
         <input
           type="text"
           value={message}
           onChange={(e) => setMessage(e.target.value)}
-          placeholder="Enter your message"
+          placeholder="Enter message"
         />
+        <button onClick={sendBroadcastMessage}>Send to Everyone</button>
       </div>
 
-      {/* Send Buttons */}
-      <button onClick={handleBroadcastMessage}>Send to All</button>
-      <button onClick={handleSendMessageToId}>Send to Specific ID</button>
+      {/* Private Message Section */}
+      <div>
+        <h3>Send a Private Message</h3>
+        <input
+          type="text"
+          value={recipientId}
+          onChange={(e) => setRecipientId(e.target.value)}
+          placeholder="Recipient Socket ID"
+        />
+        <input
+          type="text"
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          placeholder="Enter private message"
+        />
+        <button onClick={sendPrivateMessage}>Send Private</button>
+      </div>
 
-      {/* Display Messages */}
+      {/* Chat Messages Display */}
       <div className="chat-box">
-        <h3>Chat History:</h3>
+        <h3>Messages:</h3>
         {messages.map((msg, index) => (
-          <div key={index} className="chat-message">
-            <strong>{msg.from}:</strong> {msg.text} <span>({msg.timestamp})</span>
+          <div key={index}>
+            <strong>{msg.from}</strong>: {msg.text} <em>({msg.timestamp})</em>
           </div>
         ))}
       </div>
-
-      <p>Your Socket ID: {socket.id}</p>
     </div>
   );
 }
